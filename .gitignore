@@ -1,2 +1,6 @@
-prog1_mandelbrot_threads/prog1.md
-prog2_vecintrin/prog2.md
+prog1_mandelbrot_threads/prog1.readme
+prog2_vecintrin/prog2.readme
+prog3_prefixsum/prog3.readme
+prog4_sqrt/prog4.readme
+prog5_simd/prog5.readme
+prog6_kmeans/prog6.readme

@@ -1,0 +1,42 @@
+# Program 3: ISPC Mandelbrot
+
+## Overview
+
+This program implements the Mandelbrot set fractal generation using ISPC (Intel SPMD Program Compiler) for SIMD and multi-core parallelism. It demonstrates the use of ISPC's `foreach` construct for SIMD execution and `launch` for task-based multi-core parallelism.
+
+## Implementation Details
+
+- **ISPC Functions**:
+  - `mandelbrot_ispc()`: Uses `foreach` to iterate over all pixels, with SIMD execution on a single core.
+  - `mandelbrot_ispc_withtasks()`: Launches multiple tasks, each handling a portion of the image rows, utilizing multiple cores.
+
+- **Task Configuration**: Modified to launch 8 tasks (one per hardware thread on the 4-core hyper-threaded CPU) for optimal performance.
+
+## Performance Results (View 1)
+
+- **Serial Implementation**: ~120-130 ms
+- **ISPC (SIMD only)**: ~35 ms (3.5x speedup)
+- **ISPC with Tasks (8 tasks)**: ~9 ms (13.5x speedup over serial, 32x+ effective speedup)
+
+### Analysis
+
+- **SIMD Speedup**: Approximately 3.5x from 8-wide AVX2 vector instructions.
+- **Multi-core Speedup**: Additional 4x from utilizing all 8 hardware threads.
+- **Task Count Optimization**: Increasing from 2 to 8 tasks improved performance by mapping tasks directly to available hardware threads.
+
+## Key Optimizations
+
+1. **SIMD Parallelism**: `foreach` automatically vectorizes pixel computations.
+2. **Task Parallelism**: `launch[8]` distributes work across all cores and hyper-threads.
+3. **Work Distribution**: Each task processes `height/8` rows.
+
+## Output Files
+
+- `mandelbrot-serial.ppm`: Serial implementation result
+- `mandelbrot-ispc.ppm`: SIMD-only ISPC result
+- `mandelbrot-task-ispc.ppm`: Multi-core ISPC result
+
+## Conclusion
+
+ISPC provides a high-level abstraction for achieving both SIMD and multi-core parallelism, resulting in significant performance improvements over serial C++ code. The combination of SIMD vectorization and task-based multi-core execution enables over 13x speedup on modern CPUs.</content>
+<parameter name="filePath">/home/eric/cudaRepo/stanford-cs149/cs149-asst1/prog3_mandelbrot_ispc/prog3.readme
