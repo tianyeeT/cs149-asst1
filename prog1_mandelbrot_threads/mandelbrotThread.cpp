@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <thread>
+#include <cstdlib>
 
 #include "CycleTimer.h"
 
@@ -12,6 +13,7 @@ typedef struct {
     int* output;
     int threadId;
     int numThreads;
+    double timeTaken;
 } WorkerArgs;
 
 
@@ -35,7 +37,25 @@ void workerThreadStart(WorkerArgs * const args) {
     // program that uses two threads, thread 0 could compute the top
     // half of the image and thread 1 could compute the bottom half.
 
-    printf("Hello world from thread %d\n", args->threadId);
+    double startTime = CycleTimer::currentSeconds();
+
+    // Calculate which rows this thread should process
+    int totalRows = args->height / args->numThreads;
+    int startRow = args->threadId * totalRows;
+
+    // Handle the case where height is not evenly divisible by numThreads
+    // by giving the last thread any remaining rows
+    if (args->threadId == args->numThreads - 1) {
+        totalRows = args->height - startRow;
+    }
+
+    mandelbrotSerial(args->x0, args->y0, args->x1, args->y1,
+                     args->width, args->height,
+                     startRow, totalRows,
+                     args->maxIterations, args->output);
+
+    double endTime = CycleTimer::currentSeconds();
+    args->timeTaken = endTime - startTime;
 }
 
 //
@@ -91,6 +111,12 @@ void mandelbrotThread(
     // join worker threads
     for (int i=1; i<numThreads; i++) {
         workers[i].join();
+    }
+
+    // Print per-thread timing
+    printf("Per-thread times:\n");
+    for (int i=0; i<numThreads; i++) {
+        printf("  Thread %d: %.3f ms\n", i, args[i].timeTaken * 1000);
     }
 }
 
