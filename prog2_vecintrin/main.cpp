@@ -4,6 +4,7 @@
 #include <math.h>
 #include "CS149intrin.h"
 #include "logger.h"
+#include "../common/CycleTimer.h"
 using namespace std;
 
 #define EXP_MAX 10
@@ -60,13 +61,25 @@ int main(int argc, char * argv[]) {
   float* gold = new float[N+VECTOR_WIDTH];
   initValue(values, exponents, output, gold, N);
 
+  // Time serial version
+  double startTime = CycleTimer::currentSeconds();
   clampedExpSerial(values, exponents, gold, N);
+  double endTime = CycleTimer::currentSeconds();
+  double serialTime = endTime - startTime;
+
+  // Time vector version
+  startTime = CycleTimer::currentSeconds();
   clampedExpVector(values, exponents, output, N);
+  endTime = CycleTimer::currentSeconds();
+  double vectorTime = endTime - startTime;
 
   //absSerial(values, gold, N);
   //absVector(values, output, N);
 
   printf("\e[1;31mCLAMPED EXPONENT\e[0m (required) \n");
+  printf("Serial time: %.3f ms\n", serialTime * 1000);
+  printf("Vector time: %.3f ms\n", vectorTime * 1000);
+  printf("Speedup: %.2fx\n", serialTime / vectorTime);
   bool clampedCorrect = verifyResult(values, exponents, output, gold, N);
   if (printLog) CS149Logger.printLog();
   CS149Logger.printStats();
@@ -249,7 +262,64 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
-  
+
+  __cs149_vec_float vec_x, vec_result;
+  __cs149_vec_int vec_y;
+  __cs149_mask mask;
+
+  for (int i = 0; i < N; i += VECTOR_WIDTH) {
+    int width = (i + VECTOR_WIDTH <= N) ? VECTOR_WIDTH : N - i;
+    mask = _cs149_init_ones(width);
+
+    _cs149_vload_float(vec_x, values + i, mask);
+    _cs149_vload_int(vec_y, exponents + i, mask);
+
+    // Initialize result to 1.0f
+    vec_result = _cs149_vset_float(1.0f);
+
+    // For y == 0, result is 1.0f, already set
+    // For y > 0, start with result = x
+    __cs149_mask mask_y_gt_0;
+    __cs149_vec_int zero_vec = _cs149_vset_int(0);
+    _cs149_vgt_int(mask_y_gt_0, vec_y, zero_vec, mask);
+    _cs149_vmove_float(vec_result, vec_x, mask_y_gt_0);
+
+    // Now multiply for each exponent level
+    for (int e = 1; e < EXP_MAX; e++) {
+      __cs149_mask mask_y_gt_e;
+      __cs149_vec_int e_vec = _cs149_vset_int(e);
+      _cs149_vgt_int(mask_y_gt_e, vec_y, e_vec, mask);
+      _cs149_vmult_float(vec_result, vec_result, vec_x, mask_y_gt_e);
+    }
+
+    // Clamp to 9.999999f
+    __cs149_mask mask_clamp;
+    __cs149_vec_float clamp_val = _cs149_vset_float(9.999999f);
+    _cs149_vgt_float(mask_clamp, vec_result, clamp_val, mask);
+    _cs149_vset_float(vec_result, 9.999999f, mask_clamp);
+
+    _cs149_vstore_float(output + i, vec_result, mask);
+  }
+
+  // Handle remaining elements with serial code
+  for (int i = (N / VECTOR_WIDTH) * VECTOR_WIDTH; i < N; i++) {
+    float x = values[i];
+    int y = exponents[i];
+    if (y == 0) {
+      output[i] = 1.f;
+    } else {
+      float result = x;
+      int count = y - 1;
+      while (count > 0) {
+        result *= x;
+        count--;
+      }
+      if (result > 9.999999f) {
+        result = 9.999999f;
+      }
+      output[i] = result;
+    }
+  }
 }
 
 // returns the sum of all elements in values
